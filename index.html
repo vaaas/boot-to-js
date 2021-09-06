@@ -17,6 +17,7 @@
 		const fetch_text = x => x.text()
 		const qs = (x, d=document) => d.querySelector(x)
 		const qss = (x, d=document) => d.querySelectorAll(x)
+		const exec = eval.bind(self)
 
 		const remote = (f, then=fetch_text, wait=false) => (...xs) =>
 			post('/', `(${wait ? "await " : ""}${f.toString()})(${xs.map(JSON.stringify).join(',')})`)
@@ -47,7 +48,7 @@
 		const required = {}
 		async function require(x) {
 			if (x in required) return
-			eval(await get(path_join(app_dir, 'lib', x + '.js')))
+			exec(await get_text_file(path_join(app_dir, 'lib', x + '.js')))
 			required[x] = true
 		}
 

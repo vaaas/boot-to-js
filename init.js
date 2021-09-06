@@ -21,9 +21,7 @@ function on_http_request(request, socket) {
 	route(request).catch(error_response).then(serve(socket))
 }
 
-function parse_url(req) {
-	return decodeURIComponent(req.url)
-}
+const parse_url = req => decodeURIComponent(req.url)
 
 function route(req) {
 	switch (req.method) {
@@ -37,16 +35,27 @@ function route(req) {
 				case '/': return eval_command(req)
 				default: return Promise.resolve(not_found())
 			}
+		case 'PUT':
+			return write_file(req)
 	}
 }
 
-async function serve_file(pathname) {
-	return {
+const write_file = req => new Promise((yes, no) => {
+	const stream = fs.createWriteStream(req.url)
+	stream.on('error', no)
+	req.on('end', () => yes({
 		status: 200,
-		headers: { 'Content-Type': 'text/html' },
-		data: await fs.promises.readFile(pathname),
-	}
-}
+		headers: { 'Content-Type': 'text/plain' },
+		data: 'OK',
+	}))
+	req.pipe(stream)
+})
+
+const serve_file = async (pathname) => ({
+	status: 200,
+	headers: { 'Content-Type': 'text/html' },
+	data: await fs.promises.readFile(pathname),
+})
 
 function error_response(e) {
 	console.log(e)

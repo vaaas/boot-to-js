@@ -4,13 +4,44 @@
 	<meta charset='utf-8'/>
 	<title>Boot to JS</title>
 	<script>
-		const post = x => fetch('/', { method: 'POST', body: x })
-		const fetch_text = x => x.text()
-		const remote = (f, then=fetch_text) => (...xs) => post(`(${f.toString()})(${xs.map(JSON.stringify).join(',')})`).then(then)
-		const app_dir = remote(() => __dirname)
+        'use strict'
 
-		function main() {
-			app_dir().then(console.log)
+        function reject_bad_status(x) {
+            if (x.status >= 400) throw x
+            else return x
+        }
+
+        const get = url => fetch(url).then(reject_bad_status)
+		const post = (url, body) => fetch(url, { method: 'POST', body }).then(reject_bad_status)
+		const put = (url, body) => fetch(url, { method: 'PUT', body }).then(reject_bad_status)
+		const fetch_text = x => x.text()
+
+		const remote = (f, then=fetch_text, wait=false) => (...xs) =>
+			post('/', `(${wait ? "await " : ""}${f.toString()})(${xs.map(JSON.stringify).join(',')})`)
+			.then(then)
+
+        const write_file = (pathname, data) => put(pathname, data)
+
+		const get_app_dir = remote(() => __dirname)
+        let app_dir
+
+        const get_home_dir = remote(() => process.env.HOME)
+        let home_dir
+
+        const get_text_file = x => get(x).then(fetch_text)
+
+        const cache = f => {
+            let x = null
+            return () => x ?? (x = f())
+        }
+
+        const path_join = (...xs) => xs.join('/')
+
+		async function main() {
+            app_dir = await get_app_dir()
+            home_dir = await get_home_dir()
+            try { eval(await get_text_file(path_join(home_dir, '.jsrc'))) }
+            catch (e) { console.error(await e.text()) }
 		}
 
 		window.onload = main

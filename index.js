@@ -27,7 +27,7 @@ function route(req) {
 	switch (req.method) {
 		case 'GET':
 			switch (req.url) {
-				case '/': return serve_file('index.html')
+				case '/': return serve_frontpage()
 				default: return serve_file(req.url)
 			}
 		case 'POST':
@@ -56,6 +56,22 @@ const serve_file = async (pathname) => ({
 	headers: { 'Content-Type': 'text/html' },
 	data: await fs.promises.readFile(pathname),
 })
+
+async function serve_frontpage() {
+	const data = '<!DOCTYPE html>' + serialise_html(
+		['html', null, [
+			['head', null, [
+				['meta', [['charset', 'utf-8']]],
+				['title', null, 'Boot to JS'],
+				['script', null, 'console.log("YO HO HO")'],
+			]
+		]]])
+	return {
+		status: 200,
+		headers: { 'Content-Type': 'text/html' },
+		data,
+	}
+}
 
 function error_response(e) {
 	console.log(e)
@@ -87,6 +103,29 @@ const eval_command = req => read_post_data(req).then(x => ({
 const serve = socket => response => {
 	socket.writeHead(response.status, response.headers)
 	socket.end(response.data)
+}
+
+function serialise_html(node) {
+	const tokens = ['<', node[0]]
+	if (node[1])
+		tokens.push(' ', serialise_html_attributes(node[1]))
+	if (node[2]) {
+		tokens.push('>')
+		for (const x of node[2])
+			if (Array.isArray(x))
+				tokens.push(serialise_html(x))
+			else
+				tokens.push(''+x)
+		tokens.push('</', node[0], '>')
+	} else tokens.push('/>')
+	return tokens.join('')
+}
+
+function serialise_html_attributes(attrs) {
+	const tokens = []
+	for (const [k, v] of attrs)
+		tokens.push(k + '=' + v)
+	return tokens.join(' ')
 }
 
 main()

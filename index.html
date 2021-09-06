@@ -4,50 +4,84 @@
 	<meta charset='utf-8'/>
 	<title>Boot to JS</title>
 	<script>
-        'use strict'
+		'use strict'
 
-        function reject_bad_status(x) {
-            if (x.status >= 400) throw x
-            else return x
-        }
+		function reject_bad_status(x) {
+			if (x.status >= 400) throw x
+			else return x
+		}
 
-        const get = url => fetch(url).then(reject_bad_status)
+		const get = url => fetch(url).then(reject_bad_status)
 		const post = (url, body) => fetch(url, { method: 'POST', body }).then(reject_bad_status)
 		const put = (url, body) => fetch(url, { method: 'PUT', body }).then(reject_bad_status)
 		const fetch_text = x => x.text()
+		const qs = (x, d=document) => d.querySelector(x)
+		const qss = (x, d=document) => d.querySelectorAll(x)
 
 		const remote = (f, then=fetch_text, wait=false) => (...xs) =>
 			post('/', `(${wait ? "await " : ""}${f.toString()})(${xs.map(JSON.stringify).join(',')})`)
 			.then(then)
 
-        const write_file = (pathname, data) => put(pathname, data)
+		const write_file = (pathname, data) => put(pathname, data)
 
 		const get_app_dir = remote(() => __dirname)
-        let app_dir
+		let app_dir
 
-        const get_home_dir = remote(() => process.env.HOME)
-        let home_dir
+		const get_home_dir = remote(() => process.env.HOME)
+		let home_dir
 
-        const get_text_file = x => get(x).then(fetch_text)
+		let main_elem
 
-        const cache = f => {
-            let x = null
-            return () => x ?? (x = f())
-        }
+		const get_text_file = x => get(x).then(fetch_text)
 
-        const path_join = (...xs) => xs.join('/')
+		const path_join = (...xs) => xs.join('/')
+
+		const buffers = {}
+
+		async function open_file(pathname) {
+			await require('text-editor')
+			buffers[pathname] = text_editor(pathname)
+			main_elem.appendChild(buffers[pathname])
+		}
+
+		const required = {}
+		async function require(x) {
+			if (x in required) return
+			eval(await get(path_join(app_dir, 'lib', x + '.js')))
+			required[x] = true
+		}
+
+		function E(tagname, attrs=null, children=null) {
+			const elem = document.createElement(tagname)
+			if (attrs)
+				for (const x of Object.entries(attrs))
+					switch (x[0]) {
+						case 'class':
+							elem.className = x[1]
+							break
+						default:
+							elem[x[0]] = x[1]
+							break
+					}
+			if (children)
+				for (const x of children)
+					elem.appendChild(x)
+			return elem
+		}
 
 		async function main() {
-            app_dir = await get_app_dir()
-            home_dir = await get_home_dir()
-            try { eval(await get_text_file(path_join(home_dir, '.jsrc'))) }
-            catch (e) { console.error(await e.text()) }
+			app_dir = await get_app_dir()
+			home_dir = await get_home_dir()
+			main_elem = qs('main')
+			try { eval(await get_text_file(path_join(home_dir, '.jsrc'))) }
+			catch (e) { console.error(await e.text()) }
+			open_file(path_join(home_dir, '.bashrc'))
 		}
 
 		window.onload = main
 	</script>
 </head>
 <body>
-	<h1>Hello, world!</h1>
+	<main></main>
 </body>
 </html>

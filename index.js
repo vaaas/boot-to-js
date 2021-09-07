@@ -57,13 +57,19 @@ const serve_file = async (pathname) => ({
 	data: await fs.promises.readFile(pathname),
 })
 
+const js_var = (name, value) => `const ${name} = ${JSON.stringify(value)};`
+
 async function serve_frontpage() {
 	const data = '<!DOCTYPE html>' + serialise_html(
 		['html', null, [
 			['head', null, [
 				['meta', [['charset', 'utf-8']]],
 				['title', null, 'Boot to JS'],
-				['script', null, 'console.log("YO HO HO")'],
+				['script', null, [
+					js_var('app_dir', __dirname),
+					js_var('home_dir', process.env.HOME),
+				]],
+				['script', null, [ fs.readFileSync('bootstrap.js').toString() ]],
 			]
 		]]])
 	return {
